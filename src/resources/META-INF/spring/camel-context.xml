@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Configures the Camel Context -->
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.2.xsd">
+	<import resource="processor-setup.xml" />
+
+	<camelContext id="content.journal" xmlns="http://camel.apache.org/schema/spring">
+		<!-- here is a sample which processes the input files (leaving them in 
+			place - see the 'noop' flag) then performs content based routing on the message 
+			using XPath -->
+		<dataFormats>
+			<json id="json" library="Jackson" />
+			<!-- <json id="json" library="Jackson" unmarshalTypeName="com.amazonaws.services.lambda.runtime.events.DynamodbEvent"/> -->
+		</dataFormats>
+
+		<route id="eventStart">
+			<from uri="direct:start" />
+			<!-- <convertBodyTo type="java.lang.String"/> -->
+			<log id="StartLogMessage" message="\n Camel receives this message: ${body}" />
+			<log id="StartLogMessage"
+				message="\n Camel receives these message records: ${body.getRecords()}" />
+			<process id="Processor" ref="eventProcessor"></process>
+			<setProperty id="workflowId" propertyName="workflowId">
+				<!-- <bean id="eventProcessorBean" ref="eventProcessorBean" method="getWorkflowId"></bean> -->
+				<method ref="eventProcessorBean" method="getWorkflowId"></method>
+			</setProperty>
+			<setProperty propertyName="workflow.id">
+				<simple>ref:eventProcessorBean</simple>
+			</setProperty>
+			<log message="\n Property: ${exchangeProperty.workflowId}" />
+			<log message="\n Property: ${exchangeProperty.workflow.id}" />
+			<choice>
+				<when>
+					<simple>${exchangeProperty.workflowId = 'wf001'}</simple>
+					<log message="\n Camel obtains records" />
+					<to uri="direct:handleTask" />
+				</when>
+				<otherwise>
+					<log message="\n Camel does NOT obtain records" />
+				</otherwise>
+			</choice>
+		</route>
+
+		<route id="handleTask">
+			<from uri="direct:handleTask" />
+			<log id="handleTaskLogMessage" message="\n handleTask: ${body}" />
+			<choice>
+				<when>
+					<simple>${body} contains 'wf001'</simple>
+					<log message="\n workflowId000 = wf001" />
+				</when>
+				<when>
+					<simple>${body} contains 'wf002'</simple>
+					<log message="\n workflowId = wf002" />
+				</when>
+				<otherwise>
+					<log message="\n Unknown workflow id" />
+				</otherwise>
+			</choice>
+			<to uri="direct:end" />
+		</route>
+
+	</camelContext>
+</beans>
