@@ -26,43 +26,62 @@
 				message="\n Camel receives these message records: ${body.getRecords()}" />
 			<process id="Processor" ref="eventProcessor"></process>
 			<setProperty id="workflowId" propertyName="workflowId">
-				<!-- <bean id="eventProcessorBean" ref="eventProcessorBean" method="getWorkflowId"></bean> -->
 				<method ref="eventProcessorBean" method="getWorkflowId"></method>
 			</setProperty>
-			<setProperty propertyName="workflow.id">
-				<simple>ref:eventProcessorBean</simple>
-			</setProperty>
 			<log message="\n Property: ${exchangeProperty.workflowId}" />
-			<log message="\n Property: ${exchangeProperty.workflow.id}" />
 			<choice>
 				<when>
-					<simple>${exchangeProperty.workflowId = 'wf001'}</simple>
-					<log message="\n Camel obtains records" />
-					<to uri="direct:handleTask" />
+					<simple>${exchangeProperty.workflowId} == 'wf001'</simple>
+					<log message="\n workflow definition is wf001" />
+					<to uri="direct:handleWorkflow" />
 				</when>
 				<otherwise>
-					<log message="\n Camel does NOT obtain records" />
+					<log message="\n Unknown workflow definition ${exchangeProperty.workflowId}" />
+				</otherwise>
+			</choice>
+			<to uri="direct:end" />
+		</route>
+
+		<route id="handleWorkflow">
+			<from uri="direct:handleWorkflow" />
+			<setProperty id="taskId" propertyName="taskId">
+				<method ref="eventProcessorBean" method="getTaskId"></method>
+			</setProperty>
+			<log message="\n TaskId ${exchangeProperty.taskId}"/>
+			<choice>
+				<when>
+					<simple>${exchangeProperty.taskId} == 'tk001'</simple>
+					<log message="\n task wf001" />
+					<to uri="direct:handleTask_wf001" />
+				</when>
+				<when>
+					<simple>${exchangeProperty.taskId} == 'tk002'</simple>
+					<log message="\n task wf002" />
+				</when>
+				<otherwise>
+					<log message="\n Unknown task id" />
 				</otherwise>
 			</choice>
 		</route>
 
-		<route id="handleTask">
-			<from uri="direct:handleTask" />
-			<log id="handleTaskLogMessage" message="\n handleTask: ${body}" />
+		<route id="handleTask_wf001">
+			<from uri="direct:handleTask_wf001" />
+			<setProperty id="action" propertyName="action">
+				<method ref="eventProcessorBean" method="getAction"></method>
+			</setProperty>
 			<choice>
 				<when>
-					<simple>${body} contains 'wf001'</simple>
-					<log message="\n workflowId000 = wf001" />
+					<simple>${exchangeProperty.action} == 'approve'</simple>
+					<log message="\n APPROVE" />
 				</when>
 				<when>
-					<simple>${body} contains 'wf002'</simple>
-					<log message="\n workflowId = wf002" />
+					<simple>${exchangeProperty.action} == 'reject'</simple>
+					<log message="\n REJECT" />
 				</when>
 				<otherwise>
-					<log message="\n Unknown workflow id" />
+					<log message="\n Unknown action" />
 				</otherwise>
 			</choice>
-			<to uri="direct:end" />
 		</route>
 
 	</camelContext>
